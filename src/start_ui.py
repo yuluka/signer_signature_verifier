@@ -17,6 +17,7 @@ def render_generate_rsa_keys_tab():
             label_visibility="collapsed",
             placeholder="Nombre para la llave pública",
         )
+        
         priv_key_name = st.text_input(
             label="Nombre para la llave privada",
             label_visibility="collapsed",
@@ -72,7 +73,7 @@ def render_sign_file_tab():
                 return
 
             signature = st.session_state.signer.sign_file(file, priv_key_file, password)
-            
+
             st.success("Firma generada con éxito.")
             st.download_button("Descargar firma", signature, file_name="firma.sig")
 
