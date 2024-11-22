@@ -10,6 +10,7 @@ class Signer:
 
     def __init__(self):
         self.keys_path = "keys"
+        self.salt_size = 16
 
         if not os.path.exists(self.keys_path):
             os.makedirs(self.keys_path)
@@ -32,6 +33,7 @@ class Signer:
         os.system(f"openssl rsa -in {self.keys_path}/{private_key_name} -pubout -out {self.keys_path}/{public_key_name}")
 
         self.lock_file_with_password(f"{self.keys_path}/{private_key_name}", password)
+        self.unlock_file_with_password(f"{self.keys_path}/{private_key_name}_lock", password, f"{self.keys_path}/{private_key_name}_unlocked")
 
         return f"Se han generado las llaves {public_key_name} y {private_key_name} de tamaño {key_size} bits."
     
@@ -47,11 +49,66 @@ class Signer:
         :rtype: str
         """
 
-        print("Locking file...")
+        salt: bytes = os.urandom(self.salt_size)
+
+        key: bytes = self.derive_password(password, salt)
+
+        fertnet: Fernet = Fernet(key)
+
+        with open(file_path, "rb") as file:
+            file_data: bytes = file.read()
+
+        encrypted_data: bytes = fertnet.encrypt(file_data)
+
+        with open(f"{file_path}_lock", "wb") as file:
+            file.write(salt + encrypted_data)
+    
+    def unlock_file_with_password(self, encrypted_file_path: str, password: str, output_file_path: str) -> str:
+        """
+        Unlock (decrypt) a file using the given password.
+
+        :param encrypted_file_path: Path to the encrypted file.
+        :type encrypted_file_path: str
+        :param password: Password to decrypt the file.
+        :type password: str
+        :param output_file_path: Path to save the decrypted file.
+        :type output_file_path: str
+        :return: Message with the result of the operation.
+        :rtype: str
+        """
+
+        with open(encrypted_file_path, "rb") as file:
+            salt: bytes = file.read(self.salt_size)
+            encrypted_data: bytes = file.read()
+
+        key: bytes = self.derive_password(password, salt)
+
+        fernet: Fernet = Fernet(key)
+
+        try:
+            decrypted_data: bytes = fernet.decrypt(encrypted_data)
+
+            with open(output_file_path, "wb") as file:
+                file.write(decrypted_data)
+
+            return f"Archivo desbloqueado con éxito y guardado en {output_file_path}"
+            
+        except Exception as e:
+            return f"Error al descifrar el archivo: {e}"
+    
+    def derive_password(self, password: str, salt: bytes) -> bytes:
+        """
+        Derive a password using a salt.
+
+        :param password: Password to derive.
+        :type password: str
+        :param salt: Salt to use in the derivation.
+        :type salt: bytes
+        :return: Derived password.
+        :rtype: bytes
+        """
 
         pwd_bytes: bytes = password.encode("utf-8")
-
-        salt: bytes = os.urandom(16)
 
         kdf: PBKDF2HMAC = PBKDF2HMAC(
             algorithm=hashes.SHA256(),
@@ -63,16 +120,8 @@ class Signer:
         key: bytes = kdf.derive(pwd_bytes)
         key = base64.urlsafe_b64encode(key)
 
-        fertnet: Fernet = Fernet(key)
+        return key
 
-        with open(file_path, "rb") as file:
-            file_data: bytes = file.read()
-
-        encrypted_data: bytes = fertnet.encrypt(file_data)
-
-        with open(f"{file_path}", "wb") as file:
-            file.write(encrypted_data)
-    
     def sign_file(self, file, priv_key_file, password):
         pass
 
