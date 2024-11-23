@@ -10,6 +10,10 @@ def init_config():
 
 
 def render_generate_rsa_keys_tab():
+    """
+    Render the tab to generate RSA keys.
+    """
+    
     try:
         st.write("<b>Nombres de las claves</b>", unsafe_allow_html=True)
         pub_key_name = st.text_input(
@@ -46,13 +50,49 @@ def render_generate_rsa_keys_tab():
                 st.error("Por favor, completa todos los campos.")
                 return
 
-            result = st.session_state.signer.generate_rsa_keys(
+            keys_zip = st.session_state.signer.generate_rsa_keys(
                 pub_key_name, priv_key_name, key_size
             )
 
             st.success(
                 f"Claves generadas:\n- Pública: {pub_key_name}\n- Privada: {priv_key_name}"
             )
+
+            st.download_button(
+                label="Descargar llaves",
+                data=keys_zip,
+                file_name="llaves.zip",
+                mime="application/zip",
+            )
+
+    except Exception as e:
+        st.error(f"Error generando claves: {e}")
+
+def render_unlock_private_key_tab():
+    try:
+        st.write("<b>Sube tu llave privada</b>", unsafe_allow_html=True)
+
+        priv_key_file = st.file_uploader(label = "Sube la llave privada", label_visibility="collapsed")
+
+        # if st.button(label="Desbloquear llave", key="unlock_rsa_keys"):
+        #     if not pub_key_name or not priv_key_name or not password or not key_size:
+        #         st.error("Por favor, completa todos los campos.")
+        #         return
+
+        #     keys_zip = st.session_state.signer.generate_rsa_keys(
+        #         pub_key_name, priv_key_name, key_size
+        #     )
+
+        #     st.success(
+        #         f"Claves generadas:\n- Pública: {pub_key_name}\n- Privada: {priv_key_name}"
+        #     )
+
+        #     st.download_button(
+        #         label="Descargar llaves",
+        #         data=keys_zip,
+        #         file_name="llaves.zip",
+        #         mime="application/zip",
+        #     )
 
     except Exception as e:
         st.error(f"Error generando claves: {e}")
@@ -129,17 +169,21 @@ def main():
 
     init_config()
 
-    tabs = st.tabs(["Generar claves RSA", "Firmar archivo", "Verificar firma"])
+    tabs = st.tabs(["Generar claves RSA", "Desbloquear llave privada", "Firmar archivo", "Verificar firma"])
 
     with tabs[0]:
         st.header("Generar claves RSA")
         render_generate_rsa_keys_tab()
 
     with tabs[1]:
+        st.header("Desbloquear llave privada")
+        render_unlock_private_key_tab()
+
+    with tabs[2]:
         st.header("Firmar archivo")
         render_sign_file_tab()
 
-    with tabs[2]:
+    with tabs[3]:
         st.header("Verificar firma")
         render_verify_signature_tab()
 

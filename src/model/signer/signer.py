@@ -1,8 +1,11 @@
 import os
+import zipfile
+import io
 
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+
 
 import base64
 
@@ -15,7 +18,7 @@ class Signer:
         if not os.path.exists(self.keys_path):
             os.makedirs(self.keys_path)
 
-    def generate_rsa_keys(self, public_key_name: str, private_key_name: str, key_size: int, password: str = "123456") -> str:
+    def generate_rsa_keys(self, public_key_name: str, private_key_name: str, key_size: int, password: str = "123456") -> bytes:
         """
         Generate RSA keys.
 
@@ -25,17 +28,19 @@ class Signer:
         :type private_key_name: str
         :param key_size: Key size in bits.
         :type key_size: int
-        :return: str: Message with the result of the operation.
-        :rtype: str
+        :return: ZIP file with the generated keys.
+        :rtype: bytes
         """
 
-        os.system(f"openssl genrsa -out {self.keys_path}/{private_key_name} {key_size}")
-        os.system(f"openssl rsa -in {self.keys_path}/{private_key_name} -pubout -out {self.keys_path}/{public_key_name}")
+        private_key_path: str = f"{self.keys_path}/{private_key_name}"
+        public_key_path: str = f"{self.keys_path}/{public_key_name}"
+        
+        os.system(f"openssl genrsa -out {private_key_path} {key_size}")
+        os.system(f"openssl rsa -in {private_key_path} -pubout -out {public_key_path}")
 
-        self.lock_file_with_password(f"{self.keys_path}/{private_key_name}", password)
-        self.unlock_file_with_password(f"{self.keys_path}/{private_key_name}_lock", password, f"{self.keys_path}/{private_key_name}_unlocked")
+        self.lock_file_with_password(f"{private_key_path}", password)
 
-        return f"Se han generado las llaves {public_key_name} y {private_key_name} de tamaño {key_size} bits."
+        return self.generate_zip([public_key_path, private_key_path])
     
     def lock_file_with_password(self, file_path: str, password: str) -> str:
         """
@@ -45,7 +50,7 @@ class Signer:
         :type file_path: str
         :param password: Password to encrypt the file.
         :type password: str
-        :return: str: Message with the result of the operation.
+        :return: Message with the result of the operation.
         :rtype: str
         """
 
@@ -60,7 +65,7 @@ class Signer:
 
         encrypted_data: bytes = fertnet.encrypt(file_data)
 
-        with open(f"{file_path}_lock", "wb") as file:
+        with open(f"{file_path}", "wb") as file:
             file.write(salt + encrypted_data)
     
     def unlock_file_with_password(self, encrypted_file_path: str, password: str, output_file_path: str) -> str:
@@ -127,3 +132,21 @@ class Signer:
 
     def verify_signature(self, file, signature_file, pub_key_file):
         pass
+
+    def generate_zip(self, files: list[str]) -> bytes:
+        """
+        Generate a ZIP file from a list of files.
+
+        :param files: List of files to include in the ZIP file.
+        :type files: list[str]
+        :return: ZIP file as bytes.
+        :rtype: bytes
+        """
+
+        zip_buffer: io.BytesIO = io.BytesIO()
+
+        with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
+            for file in files:
+                zip_file.write(file)
+
+        return zip_buffer.getvalue()
