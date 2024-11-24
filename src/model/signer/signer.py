@@ -6,8 +6,10 @@ import zipfile
 import io
 
 import base64
+import hashlib
 from pyasn1.type.univ import Sequence, Integer
 from pyasn1.codec.der.encoder import encode
+from pyasn1.codec.der.decoder import decode
 from pyasn1.codec.cer import encoder
 
 import random
@@ -54,6 +56,75 @@ class Signer:
                 public_key_name, private_key_name, key_size, password
             )
 
+    def sign_file(
+        self,
+        file_name: str,
+        file_to_sign: bytes,
+        priv_key_file: bytes,
+        password: str,
+        sha_algorithm: str = "sha256",
+    ) -> bytes:
+        """
+        Sign a file using a private key.
+
+        :param file_name: Name of the file to sign.
+        :type file_name: str
+        :param file_to_sign: File to sign.
+        :type file_to_sign: bytes
+        :param priv_key_file: Private key file.
+        :type priv_key_file: bytes
+        :param password: Password to unlock the private key.
+        :type password: str
+        :param sha_algorithm: SHA algorithm to use. Default is "sha256".
+        :type sha_algorithm: str
+        :return: Signature of the file.
+        :rtype: bytes
+        """
+
+        if self.custom_rsa_algorithm:
+            return self.sign_file_custom_algorithm(
+                file_name, file_to_sign, priv_key_file, password, sha_algorithm
+            )
+        else:
+            return self.sign_file_default(
+                file_name, file_to_sign, priv_key_file, password, sha_algorithm
+            )
+
+    def verify_signature(
+        self,
+        file_name: str,
+        signed_file: bytes,
+        signature_file: bytes,
+        pub_key_file: bytes,
+        sha_algorithm: str = "sha256",
+    ) -> bool:
+        """
+        Verify the signature of a file.
+
+        :param file_name: Name of the file to verify.
+        :type file_name: str
+        :param signed_file: File to verify.
+        :type signed_file: bytes
+        :param signature_file: Signature of the file.
+        :type signature_file: bytes
+        :param pub_key_file: Public key file.
+        :type pub_key_file: bytes
+        :param sha_algorithm: SHA algorithm to use. Must be the same which was used when signing the file.Default is "sha256".
+        :type sha_algorithm: str
+        :return: True if the signature is valid, False otherwise.
+        :rtype: bool
+        """
+
+        if self.custom_rsa_algorithm:
+            return self.verify_signature_custom_algorithm(
+                file_name, signed_file, signature_file, pub_key_file, sha_algorithm
+            )
+        else:
+            return self.verify_signature_default(
+                file_name, signed_file, signature_file, pub_key_file, sha_algorithm
+            )
+
+    # ------------ CUSTOM RSA ALGORITHM ------------
     def generate_rsa_keys_custom_algorithm(
         self, public_key_name: str, private_key_name: str, key_size: int, password: str
     ) -> bytes:
@@ -98,7 +169,7 @@ class Signer:
         return self.generate_zip(
             [(public_key_name, public_key), (private_key_name, encrypted_key)]
         )
-        
+
     def generate_prime_number(self, bits: int) -> int:
         """
         Generate a prime number with the given number of bits.
@@ -131,7 +202,7 @@ class Signer:
             a, b = b, a % b
 
         return a
-    
+
     def private_key_to_pkcs1(self, d: int, n: int, e: int, p: int, q: int) -> bytes:
         """
         Convert a private key to PKCS1 format.
@@ -150,13 +221,12 @@ class Signer:
         :rtype: bytes
         """
 
-        dmp1 = d % (p - 1)  # d mod (p-1)
-        dmq1 = d % (q - 1)  # d mod (q-1)
-        iqmp = pow(q, -1, p)  # (inverse of q) mod p
+        dmp1 = d % (p - 1)
+        dmq1 = d % (q - 1)
+        iqmp = pow(q, -1, p)
 
-        # Construye la estructura ASN.1
         private_key = Sequence()
-        private_key.setComponentByPosition(0, Integer(0))  # Versión (0)
+        private_key.setComponentByPosition(0, Integer(0))
         private_key.setComponentByPosition(1, Integer(n))
         private_key.setComponentByPosition(2, Integer(e))
         private_key.setComponentByPosition(3, Integer(d))
@@ -166,12 +236,12 @@ class Signer:
         private_key.setComponentByPosition(7, Integer(dmq1))
         private_key.setComponentByPosition(8, Integer(iqmp))
 
-        # Codifica en formato DER
         der_encoded = encode(private_key)
 
-        # Codifica en formato PEM
         pem_key = base64.encodebytes(der_encoded).decode("utf-8")
-        pem_key = f"-----BEGIN RSA PRIVATE KEY-----\n{pem_key}-----END RSA PRIVATE KEY-----\n"
+        pem_key = (
+            f"-----BEGIN RSA PRIVATE KEY-----\n{pem_key}-----END RSA PRIVATE KEY-----\n"
+        )
 
         return pem_key.encode("utf-8")
 
@@ -194,10 +264,163 @@ class Signer:
         der_encoded = encode(public_key)
 
         pem_key = base64.encodebytes(der_encoded).decode("utf-8")
-        pem_key = f"-----BEGIN RSA PUBLIC KEY-----\n{pem_key}-----END RSA PUBLIC KEY-----\n"
+        pem_key = (
+            f"-----BEGIN RSA PUBLIC KEY-----\n{pem_key}-----END RSA PUBLIC KEY-----\n"
+        )
 
         return pem_key.encode("utf-8")
 
+    def sign_file_custom_algorithm(
+        self,
+        file_name: str,
+        file_to_sign: bytes,
+        priv_key_file: bytes,
+        password: str,
+        sha_algorithm: str = "sha256",
+    ) -> bytes:
+        """
+        Sign a file using a private key.
+
+        :param file_name: Name of the file to sign.
+        :type file_name: str
+        :param file_to_sign: File to sign.
+        :type file_to_sign: bytes
+        :param priv_key_file: Private key file.
+        :type priv_key_file: bytes
+        :param password: Password to unlock the private key.
+        :type password: str
+        :param sha_algorithm: SHA algorithm to use. Default is "sha256".
+        :type sha_algorithm: str
+        :return: Signature of the file.
+        :rtype: bytes
+        """
+
+        priv_key_data: bytes = self.unlock_file_with_password(priv_key_file, password)
+
+        d, n = self.extract_private_key_params(priv_key_data)
+
+        hash_file: int = self.generate_hash(file_to_sign, sha_algorithm)
+        signature: int = self.sign_hash(hash_file, d, n)
+
+        return signature.to_bytes((signature.bit_length() + 7) // 8, byteorder="big")
+
+    def extract_private_key_params(self, private_key: bytes) -> tuple[int, int]:
+        """
+        Extract the private key parameters (d, n) from the PKCS#1-encoded key.
+
+        :param private_key: PEM-encoded private key in bytes.
+        :type private_key: bytes
+        :return: Tuple containing (d, n).
+        :rtype: tuple
+        """
+
+        private_key_str: str = private_key.decode("utf-8")
+        private_key_str = private_key_str.replace("-----BEGIN RSA PRIVATE KEY-----", "")
+        private_key_str = private_key_str.replace("-----END RSA PRIVATE KEY-----", "")
+        private_key_str = private_key_str.strip()
+
+        der_encoded_key: bytes = base64.b64decode(private_key_str)
+        private_key, _ = decode(der_encoded_key, asn1Spec=Sequence())
+
+        n = int(private_key.getComponentByPosition(1))
+        e = int(private_key.getComponentByPosition(2))
+        d = int(private_key.getComponentByPosition(3))
+
+        return d, n
+
+    def generate_hash(self, file: bytes, sha_algorithm: str = "sha256") -> int:
+        """
+        Generate the hash of a file. The hash algorithm can be specified. Default is SHA-256.
+
+        :param file: File to hash.
+        :type file: bytes
+        :param sha_algorithm: SHA algorithm to use. Default is "sha256".
+        :type sha_algorithm: str
+        :return: Hash of the file.
+        :rtype: int
+        """
+
+        hash_function = getattr(hashlib, sha_algorithm.lower())()
+        hash_function.update(file)
+
+        return int.from_bytes(hash_function.digest(), byteorder="big")
+
+    def sign_hash(self, hash_value: int, d: int, n: int) -> int:
+        """
+        Sign a hash using the private key.
+
+        :param hash_value: Hash value to sign.
+        :type hash_value: int
+        :param d: Private exponent.
+        :type d: int
+        :param n: Modulus.
+        :type n: int
+        :return: Signature of the hash.
+        :rtype: int
+        """
+
+        return pow(hash_value, d, n)
+
+    def verify_signature_custom_algorithm(
+        self,
+        file_name: str,
+        signed_file: bytes,
+        signature_file: bytes,
+        pub_key_file: bytes,
+        sha_algorithm: str = "sha256",
+    ) -> bool:
+        """
+        Verify the signature of a file.
+
+        :param file_name: Name of the file to verify.
+        :type file_name: str
+        :param signed_file: File to verify.
+        :type signed_file: bytes
+        :param signature_file: Signature of the file.
+        :type signature_file: bytes
+        :param pub_key_file: Public key file.
+        :type pub_key_file: bytes
+        :param sha_algorithm: SHA algorithm to use. Must be the same which was used when signing the file.Default is "sha256".
+        :type sha_algorithm: str
+        :return: True if the signature is valid, False otherwise.
+        :rtype: bool
+        """
+
+        pub_key_data: bytes = pub_key_file
+
+        e, n = self.extract_public_key_params(pub_key_data)
+
+        hash_file: int = self.generate_hash(signed_file, sha_algorithm)
+        signature: int = int.from_bytes(signature_file, byteorder="big")
+
+        hash_signature: int = pow(signature, e, n)
+
+        return hash_signature == hash_file
+    
+    def extract_public_key_params(self, public_key: bytes) -> tuple[int, int]:
+        """
+        Extract the public key parameters (e, n) from the PKCS#1-encoded key.
+
+        :param public_key: PEM-encoded public key in bytes.
+        :type public_key: bytes
+        :return: Tuple containing (e, n).
+        :rtype: tuple
+        """
+
+        public_key_str: str = public_key.decode("utf-8")
+        public_key_str = public_key_str.replace("-----BEGIN RSA PUBLIC KEY-----", "")
+        public_key_str = public_key_str.replace("-----END RSA PUBLIC KEY-----", "")
+        public_key_str = public_key_str.strip()
+
+        der_encoded_key: bytes = base64.b64decode(public_key_str)
+        public_key, _ = decode(der_encoded_key, asn1Spec=Sequence())
+
+        n = int(public_key.getComponentByPosition(0))
+        e = int(public_key.getComponentByPosition(1))
+
+        return e, n
+
+    # ------------ DEFAULT RSA ALGORITHM (OpenSSL) ------------
     def generate_rsa_keys_default(
         self, public_key_name: str, private_key_name: str, key_size: int, password: str
     ) -> bytes:
@@ -310,7 +533,7 @@ class Signer:
 
         return key
 
-    def sign_file(
+    def sign_file_default(
         self,
         file_name: str,
         file_to_sign: bytes,
@@ -319,7 +542,7 @@ class Signer:
         sha_algorithm: str = "sha256",
     ) -> bytes:
         """
-        Sign a file using a private key.
+        Sign a file using a private key using the openssl command.
 
         :param file_name: Name of the file to sign.
         :type file_name: str
@@ -359,7 +582,7 @@ class Signer:
 
         return signature
 
-    def verify_signature(
+    def verify_signature_default(
         self,
         file_name: str,
         signed_file: bytes,
