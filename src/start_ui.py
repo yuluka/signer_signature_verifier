@@ -262,6 +262,8 @@ def custom_rsa_algorithm_swtch_callback():
 
 
 def main():
+    st.set_page_config(page_title="Firmador y Verificador de firmas", page_icon="🔐")
+
     st.markdown(
         """
         <style>
