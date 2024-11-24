@@ -51,7 +51,7 @@ def render_generate_rsa_keys_tab():
                 return
 
             keys_zip = st.session_state.signer.generate_rsa_keys(
-                pub_key_name, priv_key_name, key_size
+                pub_key_name, priv_key_name, key_size, password
             )
 
             st.success(
@@ -69,33 +69,42 @@ def render_generate_rsa_keys_tab():
         st.error(f"Error generando claves: {e}")
 
 def render_unlock_private_key_tab():
+    """
+    Render the tab to unlock a private key.
+    """
+
     try:
         st.write("<b>Sube tu llave privada</b>", unsafe_allow_html=True)
-
         priv_key_file = st.file_uploader(label = "Sube la llave privada", label_visibility="collapsed")
 
-        # if st.button(label="Desbloquear llave", key="unlock_rsa_keys"):
-        #     if not pub_key_name or not priv_key_name or not password or not key_size:
-        #         st.error("Por favor, completa todos los campos.")
-        #         return
+        st.write("<b>Contraseña de la llave</b>", unsafe_allow_html=True)
+        password = st.text_input(
+            label="Contraseña para desbloquear la llave privada",
+            label_visibility="collapsed",
+            placeholder="Digita una contraseña para desbloquear la llave privada",
+            type="password",
+        )
 
-        #     keys_zip = st.session_state.signer.generate_rsa_keys(
-        #         pub_key_name, priv_key_name, key_size
-        #     )
+        if st.button(label="Desbloquear llave", key="unlock_rsa_keys"):
+            if not password or not priv_key_file:
+                st.error("Por favor, completa todos los campos.")
+                return
+            
+            priv_key_file = priv_key_file.read()
+            unlocked_key = st.session_state.signer.unlock_file_with_password(priv_key_file, password)
 
-        #     st.success(
-        #         f"Claves generadas:\n- Pública: {pub_key_name}\n- Privada: {priv_key_name}"
-        #     )
+            st.success(
+                f"Clave desbloqueada con éxito."
+            )
 
-        #     st.download_button(
-        #         label="Descargar llaves",
-        #         data=keys_zip,
-        #         file_name="llaves.zip",
-        #         mime="application/zip",
-        #     )
+            st.download_button(
+                label="Descargar llaves",
+                data=unlocked_key,
+                file_name="private_key.pem",
+            )
 
     except Exception as e:
-        st.error(f"Error generando claves: {e}")
+        st.error(f"Error desbloquando clave: {e}")
 
 
 def render_sign_file_tab():
@@ -151,6 +160,13 @@ def main():
     <style>
     
     .st-key-generate_rsa_keys {
+        width: 150px;
+        margin-left: auto;
+        margin-right: auto;
+        margin-top: 20px;
+    }
+
+    .st-key-unlock_rsa_keys {
         width: 150px;
         margin-left: auto;
         margin-right: auto;
