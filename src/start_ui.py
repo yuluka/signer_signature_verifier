@@ -191,7 +191,7 @@ def render_verify_signature_tab():
     """
 
     try:
-        st.write("<b>Sube el archivo que se firmó</b>", unsafe_allow_html=True)
+        st.write("<b>Sube el archivo firmado</b>", unsafe_allow_html=True)
         file = st.file_uploader(
             label="Sube el archivo original", label_visibility="collapsed"
         )
