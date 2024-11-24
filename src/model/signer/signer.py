@@ -6,6 +6,9 @@ import zipfile
 import io
 
 import base64
+from pyasn1.type.univ import Sequence, Integer
+from pyasn1.codec.der.encoder import encode
+from pyasn1.codec.cer import encoder
 
 import random
 from sympy import isprime, mod_inverse
@@ -26,7 +29,22 @@ class Signer:
 
     def generate_rsa_keys(
         self, public_key_name: str, private_key_name: str, key_size: int, password: str
-    ):
+    ) -> bytes:
+        """
+        Generate RSA keys.
+
+        :param public_key_name: Public key name.
+        :type public_key_name: str
+        :param private_key_name: Private key name.
+        :type private_key_name: str
+        :param key_size: Key size in bits.
+        :type key_size: int
+        :param password: Password to protect the private key.
+        :type password: str
+        :return: ZIP file with the generated keys.
+        :rtype: bytes
+        """
+
         if self.custom_rsa_algorithm:
             return self.generate_rsa_keys_custom_algorithm(
                 public_key_name, private_key_name, key_size, password
@@ -39,6 +57,21 @@ class Signer:
     def generate_rsa_keys_custom_algorithm(
         self, public_key_name: str, private_key_name: str, key_size: int, password: str
     ) -> bytes:
+        """
+        Generate RSA keys.
+
+        :param public_key_name: Public key name.
+        :type public_key_name: str
+        :param private_key_name: Private key name.
+        :type private_key_name: str
+        :param key_size: Key size in bits.
+        :type key_size: int
+        :param password: Password to protect the private key.
+        :type password: str
+        :return: ZIP file with the generated keys.
+        :rtype: bytes
+        """
+
         # Step 1: Generate two prime numbers p and q
         p: int = self.generate_prime_number(key_size // 2)
         q: int = self.generate_prime_number(key_size // 2)
@@ -57,11 +90,8 @@ class Signer:
         # Step 5: Calculate d such that (d * e) * mod(phi) = 1 (d is the modular multiplicative inverse of e)
         d: int = mod_inverse(e, phi)
 
-        public_key: bytes = f"{e},{n}".encode("utf-8")
-        private_key: bytes = f"{d},{n}".encode("utf-8")
-
-        public_key = self.encode_pem("PUBLIC KEY", public_key)
-        private_key = self.encode_pem("PRIVATE KEY", private_key)
+        public_key: bytes = self.public_key_to_pkcs1(e, n)
+        private_key: bytes = self.private_key_to_pkcs1(d, n, e, p, q)
 
         encrypted_key: bytes = self.lock_file_with_password(private_key, password)
 
@@ -101,27 +131,72 @@ class Signer:
             a, b = b, a % b
 
         return a
-
-    def encode_pem(self, key_type: str, key_data: bytes) -> bytes:
+    
+    def private_key_to_pkcs1(self, d: int, n: int, e: int, p: int, q: int) -> bytes:
         """
-        Encode a key in Privacy-Enhanced Mail (PEM) format.
+        Convert a private key to PKCS1 format.
 
-        This encoding is used to make the generated keys compatible with other tools like OpenSSL.
-
-        :param key_type: Type of the key (e.g., "PUBLIC KEY").
-        :type key_type: str
-        :param key_data: Key data in bytes.
-        :type key_data: bytes
-        :return: PEM-encoded key.
+        :param d: Private exponent.
+        :type d: int
+        :param n: Modulus.
+        :type n: int
+        :param e: Public exponent.
+        :type e: int
+        :param p: First prime factor.
+        :type p: int
+        :param q: Second prime factor.
+        :type q: int
+        :return: Private key in PKCS1 format.
         :rtype: bytes
         """
 
-        base64_key: bytes = base64.b64encode(key_data).decode("utf-8")
-        pem: str = f"-----BEGIN RSA {key_type}-----\n"
-        pem += "\n".join([base64_key[i:i + 64] for i in range(0, len(base64_key), 64)])
-        pem += f"\n-----END RSA {key_type}-----\n"
+        dmp1 = d % (p - 1)  # d mod (p-1)
+        dmq1 = d % (q - 1)  # d mod (q-1)
+        iqmp = pow(q, -1, p)  # (inverse of q) mod p
 
-        return pem.encode("utf-8")
+        # Construye la estructura ASN.1
+        private_key = Sequence()
+        private_key.setComponentByPosition(0, Integer(0))  # Versión (0)
+        private_key.setComponentByPosition(1, Integer(n))
+        private_key.setComponentByPosition(2, Integer(e))
+        private_key.setComponentByPosition(3, Integer(d))
+        private_key.setComponentByPosition(4, Integer(p))
+        private_key.setComponentByPosition(5, Integer(q))
+        private_key.setComponentByPosition(6, Integer(dmp1))
+        private_key.setComponentByPosition(7, Integer(dmq1))
+        private_key.setComponentByPosition(8, Integer(iqmp))
+
+        # Codifica en formato DER
+        der_encoded = encode(private_key)
+
+        # Codifica en formato PEM
+        pem_key = base64.encodebytes(der_encoded).decode("utf-8")
+        pem_key = f"-----BEGIN RSA PRIVATE KEY-----\n{pem_key}-----END RSA PRIVATE KEY-----\n"
+
+        return pem_key.encode("utf-8")
+
+    def public_key_to_pkcs1(self, e: int, n: int) -> bytes:
+        """
+        Convert a public key to PKCS1 format.
+
+        :param e: Public exponent.
+        :type e: int
+        :param n: Modulus.
+        :type n: int
+        :return: Public key in PKCS1 format.
+        :rtype: bytes
+        """
+
+        public_key: Sequence = Sequence()
+        public_key.setComponentByPosition(0, Integer(n))
+        public_key.setComponentByPosition(1, Integer(e))
+
+        der_encoded = encode(public_key)
+
+        pem_key = base64.encodebytes(der_encoded).decode("utf-8")
+        pem_key = f"-----BEGIN RSA PUBLIC KEY-----\n{pem_key}-----END RSA PUBLIC KEY-----\n"
+
+        return pem_key.encode("utf-8")
 
     def generate_rsa_keys_default(
         self, public_key_name: str, private_key_name: str, key_size: int, password: str
