@@ -1,4 +1,4 @@
-# Signer and Sign Verifier
+# Signer and Signature Verifier
 
 ## Author
 
