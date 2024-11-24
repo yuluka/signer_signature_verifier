@@ -12,6 +12,9 @@ def init_config():
     if "signer" not in st.session_state:
         st.session_state.signer = Signer()
 
+    if "custom_rsa_algorithm" not in st.session_state:
+        st.session_state.custom_rsa_algorithm = False
+
 
 def render_generate_rsa_keys_tab():
     """
@@ -170,10 +173,10 @@ def render_sign_file_tab():
 
             st.success("Firma generada con éxito.")
             st.download_button(
-                label="Descargar firma", 
+                label="Descargar firma",
                 key="download_signature",
-                data=signature, 
-                file_name="firma.bin"
+                data=signature,
+                file_name="firma.bin",
             )
 
     except Exception as e:
@@ -239,21 +242,100 @@ def render_verify_signature_tab():
         st.error(f"Error al verificar la firma: {e}")
 
 
+def custom_rsa_algorithm_swtch_callback():
+    """
+    Handle the change event of the custom RSA algorithm switch.
+
+    When the switch is toggled, the custom RSA algorithm is enabled or disabled, and a toast message is shown.
+    """
+    if st.session_state.custom_rsa_algorithm:
+        st.session_state.signer = Signer()
+        st.toast(
+            body="Algoritmo RSA personalizado deshabilitado.", icon=":material/tune:"
+        )
+    else:
+        st.session_state.signer = Signer(True)
+        st.toast(
+            body="Algoritmo RSA personalizado habilitado.", icon=":material/brush:"
+        )
+
+
 def main():
     st.markdown(
         """
-    <style>
-    
-    .st-key-generate_rsa_keys, st-key-unlock_rsa_keys, st-key-unlock_rsa_keys, st-key-sign_file, st-key-verify_signature, st-key-download_keys, st-key-download_key, st-key-download_signature {
-        width: 150px;
-        margin-left: auto;
-        margin-right: auto;
-        margin-top: 20px;
-    }
+        <style>
+        
+        .st-key-generate_rsa_keys  {
+            width: 150px;
+            margin-left: auto;
+            margin-right: auto;
+            margin-top: 20px;
+        }
 
-    </style>
-    """,
+        .st-key-unlock_rsa_keys  {
+            width: 150px;
+            margin-left: auto;
+            margin-right: auto;
+            margin-top: 20px;
+        }
+
+        .st-key-unlock_rsa_keys  {
+            width: 150px;
+            margin-left: auto;
+            margin-right: auto;
+            margin-top: 20px;
+        }
+
+        .st-key-sign_file  {
+            width: 150px;
+            margin-left: auto;
+            margin-right: auto;
+            margin-top: 20px;
+        }
+
+        .st-key-verify_signature  {
+            width: 150px;
+            margin-left: auto;
+            margin-right: auto;
+            margin-top: 20px;
+        }
+
+        .st-key-download_keys  {
+            width: 150px;
+            margin-left: auto;
+            margin-right: auto;
+            margin-top: 20px;
+        }
+
+        .st-key-download_key  {
+            width: 150px;
+            margin-left: auto;
+            margin-right: auto;
+            margin-top: 20px;
+        }
+
+        st-key-download_signature {
+            width: 150px;
+            margin-left: auto;
+            margin-right: auto;
+            margin-top: 20px;
+        }
+
+        .st-key-custom_rsa_algorithm_swtch {
+            margin-left: auto;
+            width: 32px;
+        }
+
+        </style>
+        """,
         unsafe_allow_html=True,
+    )
+
+    st.session_state.custom_rsa_algorithm = st.toggle(
+        label="Algoritmo RSA personalizado",
+        label_visibility="collapsed",
+        key="custom_rsa_algorithm_swtch",
+        on_change=custom_rsa_algorithm_swtch_callback,
     )
 
     st.markdown(

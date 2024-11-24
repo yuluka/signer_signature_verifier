@@ -14,7 +14,8 @@ import base64
 
 class Signer:
 
-    def __init__(self):
+    def __init__(self, custom_rsa_algorithm: bool = False):
+        self.custom_rsa_algorithm = custom_rsa_algorithm
         self.keys_path = "keys"
         self.salt_size = 16
 
