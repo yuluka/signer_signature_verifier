@@ -74,6 +74,7 @@ def render_generate_rsa_keys_tab():
             )
 
     except Exception as e:
+        traceback.print_exc()
         st.error(f"Error generando claves: {e}")
 
 
@@ -314,7 +315,7 @@ def main():
             margin-top: 20px;
         }
 
-        st-key-download_signature {
+        .st-key-download_signature {
             width: 150px;
             margin-left: auto;
             margin-right: auto;

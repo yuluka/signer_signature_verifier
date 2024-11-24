@@ -5,6 +5,11 @@ import shutil
 import zipfile
 import io
 
+import base64
+
+import random
+from sympy import isprime, mod_inverse
+
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
@@ -20,6 +25,105 @@ class Signer:
         self.salt_size = 16
 
     def generate_rsa_keys(
+        self, public_key_name: str, private_key_name: str, key_size: int, password: str
+    ):
+        if self.custom_rsa_algorithm:
+            return self.generate_rsa_keys_custom_algorithm(
+                public_key_name, private_key_name, key_size, password
+            )
+        else:
+            return self.generate_rsa_keys_default(
+                public_key_name, private_key_name, key_size, password
+            )
+
+    def generate_rsa_keys_custom_algorithm(
+        self, public_key_name: str, private_key_name: str, key_size: int, password: str
+    ) -> bytes:
+        # Step 1: Generate two prime numbers p and q
+        p: int = self.generate_prime_number(key_size // 2)
+        q: int = self.generate_prime_number(key_size // 2)
+
+        # Step 2: Calculate n = p * q
+        n: int = p * q
+
+        # Step 3: Calculate phi = (p - 1) * (q - 1)
+        phi: int = (p - 1) * (q - 1)
+
+        # Step 4: Find e such that 1 < e < phi and gcd(e, phi) = 1 (e is coprime with phi)
+        e: int = 3
+        while e < phi and self.gcd(e, phi) != 1:
+            e += 2
+
+        # Step 5: Calculate d such that (d * e) * mod(phi) = 1 (d is the modular multiplicative inverse of e)
+        d: int = mod_inverse(e, phi)
+
+        public_key: bytes = f"{e},{n}".encode("utf-8")
+        private_key: bytes = f"{d},{n}".encode("utf-8")
+
+        public_key = self.encode_pem("PUBLIC KEY", public_key)
+        private_key = self.encode_pem("PRIVATE KEY", private_key)
+
+        encrypted_key: bytes = self.lock_file_with_password(private_key, password)
+
+        return self.generate_zip(
+            [(public_key_name, public_key), (private_key_name, encrypted_key)]
+        )
+        
+    def generate_prime_number(self, bits: int) -> int:
+        """
+        Generate a prime number with the given number of bits.
+
+        :param bits: Number of bits of the prime number.
+        :type bits: int
+        :return: Prime number.
+        :rtype: int
+        """
+
+        while True:
+            number: int = random.getrandbits(bits)
+
+            if isprime(number):
+                return number
+
+    def gcd(self, a: int, b: int) -> int:
+        """
+        Calculate the Greatest Common Divisor (GCD) of two numbers.
+
+        :param a: First number.
+        :type a: int
+        :param b: Second number.
+        :type b: int
+        :return: Greatest common divisor.
+        :rtype: int
+        """
+
+        while b:
+            a, b = b, a % b
+
+        return a
+
+    def encode_pem(self, key_type: str, key_data: bytes) -> bytes:
+        """
+        Encode a key in Privacy-Enhanced Mail (PEM) format.
+
+        This encoding is used to make the generated keys compatible with other tools like OpenSSL.
+
+        :param key_type: Type of the key (e.g., "PUBLIC KEY").
+        :type key_type: str
+        :param key_data: Key data in bytes.
+        :type key_data: bytes
+        :return: PEM-encoded key.
+        :rtype: bytes
+        """
+
+        base64_key: bytes = base64.b64encode(key_data).decode("utf-8")
+        pem: str = f"-----BEGIN RSA {key_type}-----\n"
+        pem += "\n".join([base64_key[i:i + 64] for i in range(0, len(base64_key), 64)])
+        pem += f"\n-----END RSA {key_type}-----\n"
+
+        return pem.encode("utf-8")
+
+    def generate_rsa_keys_default(
         self, public_key_name: str, private_key_name: str, key_size: int, password: str
     ) -> bytes:
         """
