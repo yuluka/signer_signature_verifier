@@ -363,7 +363,6 @@ class Signer:
 
     def verify_signature_custom_algorithm(
         self,
-        file_name: str,
         signed_file: bytes,
         signature_file: bytes,
         pub_key_file: bytes,
