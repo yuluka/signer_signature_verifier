@@ -68,6 +68,7 @@ def render_generate_rsa_keys_tab():
     except Exception as e:
         st.error(f"Error generando claves: {e}")
 
+
 def render_unlock_private_key_tab():
     """
     Render the tab to unlock a private key.
@@ -75,13 +76,13 @@ def render_unlock_private_key_tab():
 
     try:
         st.write("<b>Sube tu llave privada</b>", unsafe_allow_html=True)
-        priv_key_file = st.file_uploader(label = "Sube la llave privada", label_visibility="collapsed")
+        priv_key_file = st.file_uploader(label="Sube la llave privada", label_visibility="collapsed")
 
         st.write("<b>Contraseña de la llave</b>", unsafe_allow_html=True)
         password = st.text_input(
             label="Contraseña para desbloquear la llave privada",
             label_visibility="collapsed",
-            placeholder="Digita una contraseña para desbloquear la llave privada",
+            placeholder="Digita la contraseña para desbloquear la llave privada",
             type="password",
         )
 
@@ -109,11 +110,22 @@ def render_unlock_private_key_tab():
 
 def render_sign_file_tab():
     try:
-        file = st.file_uploader("Sube el archivo a firmar")
-        priv_key_file = st.file_uploader("Sube la llave privada")
-        password = st.text_input("Contraseña de la llave privada", type="password")
+        st.write("<b>Sube el archivo que deseas firmar</b>", unsafe_allow_html=True)
+        file = st.file_uploader(label="Sube el archivo a firmar", label_visibility="collapsed")
 
-        if st.button("Firmar archivo"):
+        st.write("<b>Sube tu llave privada</b>", unsafe_allow_html=True)
+        priv_key_file = st.file_uploader(label="Sube tu llave privada", label_visibility="collapsed")
+        
+        st.write("<b>Contraseña de la llave</b>", unsafe_allow_html=True)
+        password = st.text_input(
+            label="Contraseña para desbloquear la llave privada2",
+            label_visibility="collapsed",
+            placeholder="Digita la contraseña para desbloquear la llave privada",
+            type="password",
+        )
+
+
+        if st.button("Firmar archivo", key="sign_file"):
             if not file or not priv_key_file or not password:
                 st.error(
                     "Por favor, sube todos los archivos y proporciona la contraseña."
@@ -167,6 +179,13 @@ def main():
     }
 
     .st-key-unlock_rsa_keys {
+        width: 150px;
+        margin-left: auto;
+        margin-right: auto;
+        margin-top: 20px;
+    }
+
+    .st-key-sign_file {
         width: 150px;
         margin-left: auto;
         margin-right: auto;
