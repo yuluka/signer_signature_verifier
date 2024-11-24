@@ -1,7 +1,11 @@
 import streamlit as st
 from model.signer.signer import Signer
 
+import traceback
+
 AVAILABLE_KEY_SIZES = [512, 1024, 2048, 3072, 4096]
+
+AVAILABLE_SHA_ALGORITHMS = ["SHA1", "SHA256", "SHA512"]
 
 
 def init_config():
@@ -126,6 +130,18 @@ def render_sign_file_tab():
             label="Sube tu llave privada", label_visibility="collapsed"
         )
 
+        st.write(
+            "<b>Selecciona el algoritmo de Hash con el que deseas firmar</b>",
+            unsafe_allow_html=True,
+        )
+        sha_algorithm: str = st.selectbox(
+            label="Algoritmo de Hash",
+            label_visibility="collapsed",
+            placeholder="Selecciona un algoritmo de Hash",
+            options=AVAILABLE_SHA_ALGORITHMS,
+            index=None,
+        )
+
         st.write("<b>Contraseña de la llave</b>", unsafe_allow_html=True)
         password = st.text_input(
             label="Contraseña para desbloquear la llave privada2",
@@ -142,12 +158,21 @@ def render_sign_file_tab():
 
                 return
 
-            signature = st.session_state.signer.sign_file(file, priv_key_file, password)
+            file_name: str = file.name
+            file = file.read()
+            priv_key_file = priv_key_file.read()
+            
+            signature = st.session_state.signer.sign_file(
+                file_name, file, priv_key_file, password, sha_algorithm
+            )
 
             st.success("Firma generada con éxito.")
-            st.download_button("Descargar firma", signature, file_name="firma.sig")
+            st.download_button(
+                label="Descargar firma", data=signature, file_name="firma.bin"
+            )
 
     except Exception as e:
+        traceback.print_exc()
         st.error(f"Error al firmar el archivo: {e}")
 
 
