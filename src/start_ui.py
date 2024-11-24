@@ -13,7 +13,7 @@ def render_generate_rsa_keys_tab():
     """
     Render the tab to generate RSA keys.
     """
-    
+
     try:
         st.write("<b>Nombres de las claves</b>", unsafe_allow_html=True)
         pub_key_name = st.text_input(
@@ -21,7 +21,7 @@ def render_generate_rsa_keys_tab():
             label_visibility="collapsed",
             placeholder="Nombre para la llave pública",
         )
-        
+
         priv_key_name = st.text_input(
             label="Nombre para la llave privada",
             label_visibility="collapsed",
@@ -76,7 +76,9 @@ def render_unlock_private_key_tab():
 
     try:
         st.write("<b>Sube tu llave privada</b>", unsafe_allow_html=True)
-        priv_key_file = st.file_uploader(label="Sube la llave privada", label_visibility="collapsed")
+        priv_key_file = st.file_uploader(
+            label="Sube la llave privada", label_visibility="collapsed"
+        )
 
         st.write("<b>Contraseña de la llave</b>", unsafe_allow_html=True)
         password = st.text_input(
@@ -90,13 +92,13 @@ def render_unlock_private_key_tab():
             if not password or not priv_key_file:
                 st.error("Por favor, completa todos los campos.")
                 return
-            
-            priv_key_file = priv_key_file.read()
-            unlocked_key = st.session_state.signer.unlock_file_with_password(priv_key_file, password)
 
-            st.success(
-                f"Clave desbloqueada con éxito."
+            priv_key_file = priv_key_file.read()
+            unlocked_key = st.session_state.signer.unlock_file_with_password(
+                priv_key_file, password
             )
+
+            st.success(f"Clave desbloqueada con éxito.")
 
             st.download_button(
                 label="Descargar llaves",
@@ -109,13 +111,21 @@ def render_unlock_private_key_tab():
 
 
 def render_sign_file_tab():
+    """
+    Render the tab to sign a file.
+    """
+
     try:
         st.write("<b>Sube el archivo que deseas firmar</b>", unsafe_allow_html=True)
-        file = st.file_uploader(label="Sube el archivo a firmar", label_visibility="collapsed")
+        file = st.file_uploader(
+            label="Sube el archivo a firmar", label_visibility="collapsed"
+        )
 
         st.write("<b>Sube tu llave privada</b>", unsafe_allow_html=True)
-        priv_key_file = st.file_uploader(label="Sube tu llave privada", label_visibility="collapsed")
-        
+        priv_key_file = st.file_uploader(
+            label="Sube tu llave privada", label_visibility="collapsed"
+        )
+
         st.write("<b>Contraseña de la llave</b>", unsafe_allow_html=True)
         password = st.text_input(
             label="Contraseña para desbloquear la llave privada2",
@@ -123,7 +133,6 @@ def render_sign_file_tab():
             placeholder="Digita la contraseña para desbloquear la llave privada",
             type="password",
         )
-
 
         if st.button("Firmar archivo", key="sign_file"):
             if not file or not priv_key_file or not password:
@@ -204,7 +213,14 @@ def main():
 
     init_config()
 
-    tabs = st.tabs(["Generar claves RSA", "Desbloquear llave privada", "Firmar archivo", "Verificar firma"])
+    tabs = st.tabs(
+        [
+            "Generar claves RSA",
+            "Desbloquear llave privada",
+            "Firmar archivo",
+            "Verificar firma",
+        ]
+    )
 
     with tabs[0]:
         st.header("Generar claves RSA")
