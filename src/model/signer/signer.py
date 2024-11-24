@@ -1,12 +1,13 @@
+import subprocess
+from subprocess import CompletedProcess
 import os
+import shutil
 import zipfile
 import io
-import shutil
 
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-
 
 import base64
 
@@ -130,7 +131,12 @@ class Signer:
         return key
 
     def sign_file(
-        self, file_name: str, file_to_sign: bytes, priv_key_file: bytes, password: str, sha_algorithm: str = "sha256"
+        self,
+        file_name: str,
+        file_to_sign: bytes,
+        priv_key_file: bytes,
+        password: str,
+        sha_algorithm: str = "sha256",
     ) -> bytes:
         """
         Sign a file using a private key.
@@ -152,7 +158,7 @@ class Signer:
         os.makedirs(self.keys_path, exist_ok=True)
 
         priv_key_data: bytes = self.unlock_file_with_password(priv_key_file, password)
-        
+
         temporal_key_path: str = f"{self.keys_path}/temp_key.pem"
         temporal_file_to_sign_path: str = f"{self.keys_path}/{file_name}"
 
@@ -162,17 +168,77 @@ class Signer:
         with open(temporal_file_to_sign_path, "wb") as file:
             file.write(file_to_sign)
 
-        os.system(f"openssl dgst -{sha_algorithm} -sign {temporal_key_path} -out {self.keys_path}/signature.bin {temporal_file_to_sign_path}")
+        os.system(
+            f"openssl dgst -{sha_algorithm} -sign {temporal_key_path} -out {self.keys_path}/signature.bin {temporal_file_to_sign_path}"
+        )
 
         with open(f"{self.keys_path}/signature.bin", "rb") as file:
             signature: bytes = file.read()
-        
+
         shutil.rmtree(self.keys_path)
 
         return signature
 
-    def verify_signature(self, file, signature_file, pub_key_file):
-        pass
+    def verify_signature(
+        self,
+        file_name: str,
+        signed_file: bytes,
+        signature_file: bytes,
+        pub_key_file: bytes,
+        sha_algorithm: str = "sha256",
+    ) -> bool:
+        """
+        Verify the signature of a file.
+
+        :param file_name: Name of the file to verify.
+        :type file_name: str
+        :param signed_file: File to verify.
+        :type signed_file: bytes
+        :param signature_file: Signature of the file.
+        :type signature_file: bytes
+        :param pub_key_file: Public key file.
+        :type pub_key_file: bytes
+        :param sha_algorithm: SHA algorithm to use. Must be the same which was used when signing the file.Default is "sha256".
+        :type sha_algorithm: str
+        :return: True if the signature is valid, False otherwise.
+        :rtype: bool
+        """
+        os.makedirs(self.keys_path, exist_ok=True)
+
+        temporal_key_path: str = f"{self.keys_path}/temp_key.pem"
+        temporal_signature_path: str = f"{self.keys_path}/signature.bin"
+        temporal_signed_file_path: str = f"{self.keys_path}/{file_name}"
+
+        with open(temporal_key_path, "wb") as file:
+            file.write(pub_key_file)
+
+        with open(temporal_signature_path, "wb") as file:
+            file.write(signature_file)
+
+        with open(temporal_signed_file_path, "wb") as file:
+            file.write(signed_file)
+
+        try:
+            cmdlt_result: CompletedProcess[str] = subprocess.run(
+                [
+                    "openssl",
+                    "dgst",
+                    f"-{sha_algorithm}",
+                    "-verify",
+                    temporal_key_path,
+                    "-signature",
+                    temporal_signature_path,
+                    temporal_signed_file_path,
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+
+            return "Verified OK" in cmdlt_result.stdout
+
+        finally:
+            shutil.rmtree(self.keys_path)
 
     def generate_zip(self, files: list[tuple[str, bytes]]) -> bytes:
         """

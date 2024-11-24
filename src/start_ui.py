@@ -161,7 +161,7 @@ def render_sign_file_tab():
             file_name: str = file.name
             file = file.read()
             priv_key_file = priv_key_file.read()
-            
+
             signature = st.session_state.signer.sign_file(
                 file_name, file, priv_key_file, password, sha_algorithm
             )
@@ -177,18 +177,52 @@ def render_sign_file_tab():
 
 
 def render_verify_signature_tab():
-    try:
-        file = st.file_uploader("Sube el archivo original")
-        signature_file = st.file_uploader("Sube el archivo de firma")
-        pub_key_file = st.file_uploader("Sube la llave pública")
+    """
+    Render the tab to verify a signature.
+    """
 
-        if st.button("Verificar firma"):
-            if not file or not signature_file or not pub_key_file:
-                st.error("Por favor, sube todos los archivos necesarios.")
+    try:
+        st.write("<b>Sube el archivo que se firmó</b>", unsafe_allow_html=True)
+        file = st.file_uploader(
+            label="Sube el archivo original", label_visibility="collapsed"
+        )
+
+        st.write("<b>Sube la firma generada</b>", unsafe_allow_html=True)
+        signature_file = st.file_uploader(
+            label="Sube el archivo de firma", label_visibility="collapsed"
+        )
+
+        st.write("<b>Sube la clave pública</b>", unsafe_allow_html=True)
+        pub_key_file = st.file_uploader(
+            label="Sube la llave pública", label_visibility="collapsed"
+        )
+
+        st.write(
+            "<b>Selecciona el algoritmo de Hash con el que se generó la firma</b>",
+            unsafe_allow_html=True,
+        )
+        sha_algorithm: str = st.selectbox(
+            label="Algoritmo de Hash de la firma",
+            label_visibility="collapsed",
+            placeholder="Selecciona un algoritmo de Hash",
+            options=AVAILABLE_SHA_ALGORITHMS,
+            index=None,
+        )
+
+        if st.button("Verificar firma", key="verify_signature"):
+            if not file or not signature_file or not pub_key_file or not sha_algorithm:
+                st.error(
+                    "Por favor, sube todos los archivos necesarios y selecciona un algoritmo de Hash."
+                )
                 return
 
+            file_name: str = file.name
+            file = file.read()
+            signature_file = signature_file.read()
+            pub_key_file = pub_key_file.read()
+
             is_valid = st.session_state.signer.verify_signature(
-                file, signature_file, pub_key_file
+                file_name, file, signature_file, pub_key_file, sha_algorithm
             )
 
             if is_valid:
@@ -220,6 +254,13 @@ def main():
     }
 
     .st-key-sign_file {
+        width: 150px;
+        margin-left: auto;
+        margin-right: auto;
+        margin-top: 20px;
+    }
+
+    .st-key-verify_signature {
         width: 150px;
         margin-left: auto;
         margin-right: auto;
