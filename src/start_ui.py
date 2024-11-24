@@ -64,6 +64,7 @@ def render_generate_rsa_keys_tab():
 
             st.download_button(
                 label="Descargar llaves",
+                key="download_keys",
                 data=keys_zip,
                 file_name="llaves.zip",
                 mime="application/zip",
@@ -105,7 +106,8 @@ def render_unlock_private_key_tab():
             st.success(f"Clave desbloqueada con éxito.")
 
             st.download_button(
-                label="Descargar llaves",
+                label="Descargar llave",
+                key="download_key",
                 data=unlocked_key,
                 file_name="private_key.pem",
             )
@@ -168,7 +170,10 @@ def render_sign_file_tab():
 
             st.success("Firma generada con éxito.")
             st.download_button(
-                label="Descargar firma", data=signature, file_name="firma.bin"
+                label="Descargar firma", 
+                key="download_signature",
+                data=signature, 
+                file_name="firma.bin"
             )
 
     except Exception as e:
@@ -239,28 +244,7 @@ def main():
         """
     <style>
     
-    .st-key-generate_rsa_keys {
-        width: 150px;
-        margin-left: auto;
-        margin-right: auto;
-        margin-top: 20px;
-    }
-
-    .st-key-unlock_rsa_keys {
-        width: 150px;
-        margin-left: auto;
-        margin-right: auto;
-        margin-top: 20px;
-    }
-
-    .st-key-sign_file {
-        width: 150px;
-        margin-left: auto;
-        margin-right: auto;
-        margin-top: 20px;
-    }
-
-    .st-key-verify_signature {
+    .st-key-generate_rsa_keys, st-key-unlock_rsa_keys, st-key-unlock_rsa_keys, st-key-sign_file, st-key-verify_signature, st-key-download_keys, st-key-download_key, st-key-download_signature {
         width: 150px;
         margin-left: auto;
         margin-right: auto;
