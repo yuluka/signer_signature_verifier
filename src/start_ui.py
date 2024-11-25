@@ -117,7 +117,7 @@ def render_unlock_private_key_tab():
             )
 
     except Exception as e:
-        st.error(f"Error desbloquando clave: {e}")
+        st.error(f"Error desbloqueando clave: {e}")
 
 
 def render_sign_file_tab():
