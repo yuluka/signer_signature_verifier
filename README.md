@@ -3,6 +3,8 @@
 ## Author
 
 - Yuluka Gigante Muriel
+- Santiago Prado
+- Juan Diego Lora
 
 
 ## Overview
